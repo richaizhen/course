@@ -91,6 +91,7 @@
   .result{ margin-top:32px; }
   .result-img{ width:100%; display:block; border:1px solid var(--line); border-radius:12px; box-shadow:0 6px 24px rgba(20,20,19,.07); }
   .result-actions{ display:flex; gap:12px; margin-top:20px; }
+  .save-hint{ font-size:14px; color:var(--ink-3); text-align:center; margin:16px 0 0; }
   .btn-save, .btn-share{
     flex:1; padding:14px; line-height:1;
     display:flex; align-items:center; justify-content:center;
@@ -123,6 +124,7 @@
         <button class="btn-save" id="saveBtn">保存图片</button>
         <button class="btn-share" id="shareBtn" hidden>分享</button>
       </div>
+      <p class="save-hint" id="saveHint" hidden>长按上方图片，选择"保存图片"或"发送给朋友"</p>
     </section>
   </main>
 
@@ -278,6 +280,13 @@
   }
 
   var posterCanvas = null, posterUrl = "";
+  // WeChat's in-app browser ignores the <a download> attribute (it just
+  // navigates to the data: URI as a page) and doesn't reliably support the
+  // Web Share API for files, so a JS-triggered "save"/"share" click there
+  // produces a link/file instead of a real photo. The one path that does
+  // work is WeChat's own native long-press menu on an <img> element, so in
+  // WeChat we hide the buttons and point people at that instead.
+  var isWeChat = /MicroMessenger/i.test(navigator.userAgent);
 
   document.getElementById("generate").addEventListener("click", async function(){
     var btn = this;
@@ -295,7 +304,12 @@
       posterUrl = posterCanvas.toDataURL("image/png");
       document.getElementById("resultImg").src = posterUrl;
       document.getElementById("result").hidden = false;
-      setupShare();
+      if (isWeChat) {
+        document.getElementById("saveBtn").hidden = true;
+        document.getElementById("saveHint").hidden = false;
+      } else {
+        setupShare();
+      }
       document.getElementById("result").scrollIntoView({ behavior:"smooth", block:"start" });
     } finally {
       btn.disabled = false; btn.textContent = "生成一纸禅";
