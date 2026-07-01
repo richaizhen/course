@@ -1,0 +1,13 @@
+name = "conelab-course"
+compatibility_date = "2026-04-01"
+
+# Static assets only — no Worker script needed for this project.
+[assets]
+directory = "./public"
+not_found_handling = "none"
+
+# Bind to the course subdomain. Cloudflare auto-creates the DNS record
+# and provisions TLS (same pattern as conelab-website's custom domains).
+[[routes]]
+pattern = "course.conelab.ai"
+custom_domain = true
