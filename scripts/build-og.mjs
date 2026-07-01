@@ -1,13 +1,15 @@
 // Generates the Open Graph share-card image for /yizhichan/ in public/.
-// Text is outlined to vector paths from the Noto Serif SC + Noto Sans SC
-// variable fonts, so the rasterized PNG needs no font installed on the
-// build machine. Re-run with `npm run build:og` after changing copy/layout.
+// Text is outlined to vector paths from the Noto Serif SC variable font, so
+// the rasterized PNG needs no font installed on the build machine.
+// Re-run with `npm run build:og` after changing copy/layout.
 //
 // Layout: 1200×630, two centered lines (title, tagline) + bottom-right
 // ConeLab logo. Mirrors the card system in ../conelab-website/scripts/build-og.mjs
-// (same colours, same corner-logo placement) but adapted for CJK: Noto Serif SC
-// for the title (matches the page's own <h1> font), Noto Sans SC Light with
-// extra letter-spacing for the tagline.
+// (same colours, same corner-logo placement). Both lines use Noto Serif SC —
+// title at 700 upright, tagline at 400 with a synthetic italic (skew) applied
+// to the glyph paths, since the CJK family ships no separate italic design.
+// The tagline size is solved (not guessed) so its rendered width matches the
+// title's width exactly, per the user's "两行宽度大体一致" request.
 
 import * as fontkitNS from "fontkit";
 import sharp from "sharp";
@@ -29,11 +31,10 @@ const W = 1200;
 const H = 630;
 
 const notoSerifSC = fontkit.openSync(join(__dirname, "fonts", "NotoSerifSC-Bold.ttf"));
-const notoSansSC = fontkit.openSync(join(__dirname, "fonts", "NotoSansSC-Light.ttf"));
 
 const variationCache = new Map();
 function instance(font, settings) {
-  const key = (font === notoSerifSC ? "serif" : "sans") + JSON.stringify(settings);
+  const key = JSON.stringify(settings);
   if (!variationCache.has(key)) variationCache.set(key, font.getVariation(settings));
   return variationCache.get(key);
 }
@@ -41,7 +42,8 @@ function instance(font, settings) {
 // Advance width of a text run at a given size + optional per-character
 // tracking (extra px added after every character, including the last —
 // callers that need "gaps between characters only" should subtract one
-// tracking unit from the returned width when centering).
+// tracking unit from the returned width when centering). Skew doesn't change
+// advance widths, so measure() is unaffected by the `skewDeg` render option.
 function measure(font, settings, text, size, tracking = 0) {
   const run = instance(font, settings).layout(text);
   const scale = size / font.unitsPerEm;
@@ -50,9 +52,10 @@ function measure(font, settings, text, size, tracking = 0) {
   return adv * scale + tracking * text.length;
 }
 
-function textLine(font, settings, text, x, baseline, size, fill, tracking = 0) {
+function textLine(font, settings, text, x, baseline, size, fill, tracking = 0, skewDeg = 0) {
   const run = instance(font, settings).layout(text);
   const scale = size / font.unitsPerEm;
+  const skew = skewDeg ? ` skewX(${skewDeg})` : "";
   let penX = 0;
   let paths = "";
   run.glyphs.forEach((glyph, i) => {
@@ -61,17 +64,17 @@ function textLine(font, settings, text, x, baseline, size, fill, tracking = 0) {
     if (d && d.trim()) {
       const gx = x + (penX + (pos.xOffset || 0)) * scale;
       const gy = baseline - (pos.yOffset || 0) * scale;
-      paths += `<path d="${d}" transform="translate(${gx.toFixed(2)} ${gy.toFixed(2)}) scale(${scale.toFixed(5)} ${(-scale).toFixed(5)})"/>`;
+      paths += `<path d="${d}" transform="translate(${gx.toFixed(2)} ${gy.toFixed(2)})${skew} scale(${scale.toFixed(5)} ${(-scale).toFixed(5)})"/>`;
     }
     penX += pos.xAdvance + tracking / scale;
   });
   return `<g fill="${fill}">${paths}</g>`;
 }
 
-function centeredLine(font, settings, text, baseline, size, fill, tracking = 0) {
+function centeredLine(font, settings, text, baseline, size, fill, tracking = 0, skewDeg = 0) {
   const width = measure(font, settings, text, size, tracking) - tracking;
   const x = (W - width) / 2;
-  return textLine(font, settings, text, x, baseline, size, fill, tracking);
+  return textLine(font, settings, text, x, baseline, size, fill, tracking, skewDeg);
 }
 
 const extractSvgInner = (raw) =>
@@ -100,12 +103,12 @@ function renderStack(rows) {
   return svg;
 }
 
-function textRow(font, settings, text, size, fill, gap, tracking = 0) {
+function textRow(font, settings, text, size, fill, gap, tracking = 0, skewDeg = 0) {
   return {
     above: (font.capHeight / font.unitsPerEm) * size,
     below: (Math.abs(font.descent) / font.unitsPerEm) * size,
     gap,
-    render: (baseline) => centeredLine(font, settings, text, baseline, size, fill, tracking),
+    render: (baseline) => centeredLine(font, settings, text, baseline, size, fill, tracking, skewDeg),
   };
 }
 
@@ -116,9 +119,25 @@ const svgDoc = (inner) =>
   `</svg>`;
 
 function buildCard() {
+  const HERO_TEXT = "产品一纸禅";
+  const HERO_SIZE = 150;
+  const HERO_TRACKING = HERO_SIZE * 0.02;
+  const HERO_GAP = 96 * (HERO_SIZE / 128); // keep the original rhythm, scaled up
+
+  const TAG_TEXT = "从0到1，构建你的第一个AI出海产品";
+  const TAG_TRACKING_RATIO = 0.04;
+  const TAG_SKEW_DEG = -10;
+
+  const heroWidth = measure(notoSerifSC, { wght: 700 }, HERO_TEXT, HERO_SIZE, HERO_TRACKING);
+  // Solve the tagline size so its width matches the hero line exactly:
+  // measure() is linear in size (tracking is defined as size * ratio too),
+  // so the width-per-unit-size at size=1 lets us divide it out directly.
+  const tagUnitWidth = measure(notoSerifSC, { wght: 400 }, TAG_TEXT, 1, TAG_TRACKING_RATIO);
+  const tagSize = heroWidth / tagUnitWidth;
+
   const content = renderStack([
-    textRow(notoSerifSC, { wght: 700 }, "产品一纸禅", 128, COLOR.ink, 96),
-    textRow(notoSansSC, { wght: 300 }, "从0到1，构建你的第一个AI出海产品", 40, COLOR.orange, 0, 40 * 0.08),
+    textRow(notoSerifSC, { wght: 700 }, HERO_TEXT, HERO_SIZE, COLOR.ink, HERO_GAP, HERO_TRACKING),
+    textRow(notoSerifSC, { wght: 400 }, TAG_TEXT, tagSize, COLOR.orange, 0, tagSize * TAG_TRACKING_RATIO, TAG_SKEW_DEG),
   ]);
   const cornerH = 40;
   const corner = logoAt(W - 64 - logoWidth(cornerH), H - 64 - cornerH, cornerH);
