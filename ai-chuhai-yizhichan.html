@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>AI出海 · 产品一纸禅</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* —— 设计规范：ConeLab / Anthropic 配色 —— */
+  :root{
+    --bg:#FAF9F5; --surface:#FFFFFF; --field:#FAF9F5;
+    --ink:#141413; --ink-2:#57564F; --ink-3:#8C8A82;
+    --line:#E8E6DC; --line-2:#B0AEA5;
+    --accent:#788C5D; --accent-press:#647649; --on-accent:#FAF9F5;
+    --font-serif:"Noto Serif SC","Songti SC","SimSun",serif;
+    --font-ui:"Outfit","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--font-ui);
+    line-height:1.6; -webkit-font-smoothing:antialiased;
+    padding:24px 16px 64px;
+  }
+  .sheet{
+    max-width:600px; margin:0 auto; background:var(--surface);
+    border:1px solid var(--line); border-radius:18px;
+    padding:40px 36px;
+  }
+  @media (max-width:540px){ .sheet{ padding:28px 20px; border-radius:14px; } }
+
+  /* —— 页眉 —— */
+  h1{
+    font-family:var(--font-serif); font-weight:700; color:var(--ink);
+    font-size:clamp(25px,6.4vw,40px); line-height:1.25; letter-spacing:.04em;
+    margin:0 0 26px;
+  }
+  .subtitle{ font-size:15px; color:var(--ink-3); margin:0 0 28px; }
+
+  /* —— 进度 —— */
+  .progress{ display:flex; align-items:center; gap:12px; margin-bottom:30px; }
+  .progress-track{ flex:1; height:4px; background:var(--line); border-radius:99px; overflow:hidden; }
+  .progress-fill{ height:100%; width:0%; background:var(--accent); border-radius:99px; transition:width .35s ease; }
+  .progress-count{ font-family:var(--font-ui); font-size:13px; color:var(--ink-3); white-space:nowrap; }
+  .progress-count b{ color:var(--accent); font-weight:600; }
+
+  /* —— 问题 —— */
+  .q{ padding:22px 0; }
+  .q + .q{ border-top:1px solid var(--line); }
+  .q-head{ display:flex; gap:14px; align-items:baseline; margin-bottom:12px; }
+  .q-num{
+    font-family:var(--font-ui); font-weight:600; font-size:14px;
+    color:var(--line-2); min-width:24px; transition:color .25s ease;
+  }
+  .q.filled .q-num{ color:var(--accent); }
+  .q-label{ font-size:17px; font-weight:500; color:var(--ink); }
+  textarea{
+    display:block; width:100%; min-height:54px; resize:none; overflow:hidden;
+    font-family:var(--font-ui); font-size:16px; color:var(--ink); line-height:1.6;
+    background:var(--field); border:1px solid var(--line); border-radius:10px;
+    padding:13px 15px; transition:border-color .2s ease, box-shadow .2s ease;
+  }
+  textarea::placeholder{ color:var(--line-2); }
+  textarea:focus{
+    outline:none; border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(120,140,93,.16);
+  }
+
+  /* —— 生成按钮 —— */
+  .generate{
+    width:100%; margin-top:30px; padding:15px;
+    display:flex; align-items:center; justify-content:center; line-height:1;
+    font-family:var(--font-ui); font-size:16px; font-weight:500;
+    color:var(--on-accent); background:var(--accent); border:none; border-radius:12px;
+    cursor:pointer; transition:background .15s ease, transform .05s ease;
+  }
+  .generate:hover{ background:var(--accent-press); }
+  .generate:active{ transform:scale(.99); }
+  .generate:disabled{ opacity:.6; cursor:default; }
+
+  /* —— 结果（图片）—— */
+  .result{ margin-top:32px; }
+  .result-img{ width:100%; display:block; border:1px solid var(--line); border-radius:12px; box-shadow:0 6px 24px rgba(20,20,19,.07); }
+  .result-actions{ display:flex; gap:12px; margin-top:20px; }
+  .btn-save, .btn-share{
+    flex:1; padding:14px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-ui); font-size:15px; font-weight:500;
+    border-radius:10px; cursor:pointer; transition:all .15s ease;
+  }
+  .btn-save{ background:var(--accent); color:var(--on-accent); border:none; }
+  .btn-save:hover{ background:var(--accent-press); }
+  .btn-share{ background:var(--surface); color:var(--ink); border:1px solid var(--line); }
+  .btn-share:hover{ border-color:var(--line-2); }
+  [hidden]{ display:none !important; }
+</style>
+</head>
+<body>
+  <main class="sheet">
+    <h1>AI出海 · 产品一纸禅</h1>
+
+    <div class="progress">
+      <div class="progress-track"><div class="progress-fill" id="fill"></div></div>
+      <span class="progress-count"><b id="done">0</b> / 8</span>
+    </div>
+
+    <div id="questions"></div>
+
+    <button class="generate" id="generate">生成一纸禅</button>
+
+    <section class="result" id="result" hidden>
+      <img class="result-img" id="resultImg" alt="AI出海 · 产品一纸禅">
+      <div class="result-actions">
+        <button class="btn-save" id="saveBtn">保存图片</button>
+        <button class="btn-share" id="shareBtn" hidden>分享</button>
+      </div>
+    </section>
+  </main>
+
+<script>
+  var QUESTIONS = [
+    { label:"目标用户画像",     ph:"例：想要通过健身来增肌或减脂的欧美年轻人" },
+    { label:"目标用户痛点",     ph:"例：懂得“三分练七分吃”，但是不会计算热量和蛋白质" },
+    { label:"现有方案如何解决", ph:"例：参考健身博主的食谱" },
+    { label:"现有方案有何问题", ph:"例：别人的食谱不适配自己的实际情况" },
+    { label:"我想用 AI 解决什么", ph:"例：填写身高、体重、目标和忌口，自动生成带热量和蛋白质的食谱" },
+    { label:"MVP 版本要做什么", ph:"例：先做最核心的功能——输入目标，输出食谱" },
+    { label:"用户为什么愿意试", ph:"例：三十秒拿到为自己量身定制的食谱，比去网上找的更合适" },
+    { label:"用户在哪里能找到", ph:"例：Reddit 的 r/fitness、健身爱好者的 Facebook 群组" }
+  ];
+
+  var box = document.getElementById("questions");
+  var fields = [];
+
+  QUESTIONS.forEach(function(q, i){
+    var wrap = document.createElement("div");
+    wrap.className = "q";
+    var num = ("0" + (i + 1)).slice(-2);
+    wrap.innerHTML =
+      '<div class="q-head">' +
+        '<span class="q-num">' + num + '</span>' +
+        '<span class="q-label">' + q.label + '</span>' +
+      '</div>';
+    var ta = document.createElement("textarea");
+    ta.rows = 1;
+    ta.placeholder = q.ph;
+    ta.addEventListener("input", function(){
+      fit(ta);
+      wrap.classList.toggle("filled", ta.value.trim().length > 0);
+      updateProgress();
+    });
+    wrap.appendChild(ta);
+    box.appendChild(wrap);
+    fields.push(ta);
+    fit(ta);
+  });
+
+  /* —— 文本框按内容/提示自动调整高度 —— */
+  function fit(el){
+    if (el.value){
+      el.style.height = "auto";
+      el.style.height = el.scrollHeight + "px";
+    } else {
+      el.value = el.placeholder;
+      el.style.height = "auto";
+      el.style.height = el.scrollHeight + "px";
+      el.value = "";
+    }
+  }
+
+  function updateProgress(){
+    var n = fields.filter(function(f){ return f.value.trim().length > 0; }).length;
+    document.getElementById("done").textContent = n;
+    document.getElementById("fill").style.width = (n / 8 * 100) + "%";
+  }
+
+  /* —— 文字按字符换行（适合中文）—— */
+  function wrapText(ctx, text, maxWidth){
+    var lines = [], line = "";
+    for (var i = 0; i < text.length; i++){
+      var ch = text[i];
+      if (ch === "\n"){ lines.push(line); line = ""; continue; }
+      var test = line + ch;
+      if (ctx.measureText(test).width > maxWidth && line !== ""){
+        lines.push(line); line = ch;
+      } else { line = test; }
+    }
+    if (line !== "") lines.push(line);
+    return lines;
+  }
+
+  /* —— 把答案画成一张竖版海报 —— */
+  function drawPoster(){
+    var scale = 2, W = 1080, PADX = 90, CW = W - PADX * 2;
+    var C = {
+      bandH:180, bodyTopGap:62,
+      labelH:34, labelGap:16, answerLH:46, blockGap:44,
+      footTopGap:38, footerBand:104, numGap:18
+    };
+    var fTitle = '700 62px "Noto Serif SC"', fNum = '600 26px "Outfit"',
+        fLabel = '700 34px "Noto Serif SC"', fAnswer = '400 30px "Noto Serif SC"',
+        fBrand = '500 22px "Noto Serif SC"', fMark = '700 340px "Noto Serif SC"';
+
+    var m = document.createElement("canvas").getContext("2d");
+    var blocks = QUESTIONS.map(function(q, i){
+      var raw = fields[i].value.trim();
+      m.font = fAnswer;
+      return { num:("0" + (i + 1)).slice(-2), label:q.label,
+               lines: wrapText(m, raw || "待补充", CW), blank: raw === "" };
+    });
+
+    // layout（正文在页眉色块之下）
+    var y = C.bandH + C.bodyTopGap;
+    blocks.forEach(function(b){
+      y += C.labelH; b.labelBase = y;
+      y += C.labelGap;
+      b.answerBases = b.lines.map(function(){ y += C.answerLH; return y; });
+      y += C.blockGap;
+    });
+    y += C.footTopGap; var footRuleY = y;
+    var brandMid = footRuleY + C.footerBand / 2;
+    var totalH = footRuleY + C.footerBand;
+
+    var canvas = document.createElement("canvas");
+    canvas.width = W * scale; canvas.height = totalH * scale;
+    var ctx = canvas.getContext("2d");
+    ctx.scale(scale, scale);
+
+    // 底色
+    ctx.fillStyle = "#FAF9F5"; ctx.fillRect(0, 0, W, totalH);
+
+    // 淡“禅”字水印（右下，压在正文之下）
+    ctx.save();
+    ctx.font = fMark; ctx.fillStyle = "rgba(20,20,19,0.05)";
+    ctx.textAlign = "right"; ctx.textBaseline = "alphabetic";
+    ctx.fillText("禅", W + 28, totalH - 44);
+    ctx.restore();
+
+    // 页眉色块（绿，通栏）+ 浅色标题
+    ctx.fillStyle = "#788C5D"; ctx.fillRect(0, 0, W, C.bandH);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = fTitle; ctx.fillStyle = "#FAF9F5";
+    ctx.fillText("AI出海 · 产品一纸禅", W / 2, C.bandH / 2);
+    ctx.textBaseline = "alphabetic";
+
+    // 八问
+    ctx.textAlign = "left";
+    blocks.forEach(function(b){
+      ctx.font = fNum; ctx.fillStyle = "#788C5D";
+      ctx.fillText(b.num, PADX, b.labelBase);
+      var nw = ctx.measureText(b.num).width;
+      ctx.font = fLabel; ctx.fillStyle = "#141413";
+      ctx.fillText(b.label, PADX + nw + C.numGap, b.labelBase);
+      ctx.font = fAnswer; ctx.fillStyle = b.blank ? "#B0AEA5" : "#141413";
+      b.answerBases.forEach(function(by, idx){ ctx.fillText(b.lines[idx], PADX, by); });
+    });
+
+    // 页脚：分隔线 + 上下居中的版权
+    ctx.strokeStyle = "#E8E6DC"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PADX, footRuleY); ctx.lineTo(W - PADX, footRuleY); ctx.stroke();
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = fBrand; ctx.fillStyle = "#8C8A82";
+    ctx.letterSpacing = "2px";
+    ctx.fillText("© 2026 · 甄诚聊AI · ALL RIGHTS RESERVED", W / 2, brandMid);
+    ctx.letterSpacing = "0px";
+    ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+
+    return canvas;
+  }
+
+  var posterCanvas = null, posterUrl = "";
+
+  document.getElementById("generate").addEventListener("click", async function(){
+    var btn = this;
+    btn.disabled = true; btn.textContent = "生成中…";
+    try {
+      try {
+        await document.fonts.ready;
+        await Promise.all([
+          document.fonts.load('700 60px "Noto Serif SC"'),
+          document.fonts.load('400 30px "Noto Serif SC"'),
+          document.fonts.load('600 26px "Outfit"')
+        ]);
+      } catch (e) {}
+      posterCanvas = drawPoster();
+      posterUrl = posterCanvas.toDataURL("image/png");
+      document.getElementById("resultImg").src = posterUrl;
+      document.getElementById("result").hidden = false;
+      setupShare();
+      document.getElementById("result").scrollIntoView({ behavior:"smooth", block:"start" });
+    } finally {
+      btn.disabled = false; btn.textContent = "生成一纸禅";
+    }
+  });
+
+  document.getElementById("saveBtn").addEventListener("click", function(){
+    if (!posterUrl) return;
+    var a = document.createElement("a");
+    a.href = posterUrl; a.download = "AI出海-产品一纸禅.png";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+
+  function setupShare(){
+    var shareBtn = document.getElementById("shareBtn");
+    if (!(navigator.canShare && posterCanvas)) { shareBtn.hidden = true; return; }
+    shareBtn.hidden = false;
+    shareBtn.onclick = function(){
+      posterCanvas.toBlob(function(blob){
+        if (!blob) return;
+        var file = new File([blob], "AI出海-产品一纸禅.png", { type:"image/png" });
+        if (navigator.canShare({ files:[file] })){
+          navigator.share({ files:[file], title:"我的产品一纸禅" }).catch(function(){});
+        } else {
+          document.getElementById("saveBtn").click();
+        }
+      }, "image/png");
+    };
+  }
+</script>
+</body>
+</html>
